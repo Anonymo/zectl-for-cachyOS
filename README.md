@@ -95,8 +95,8 @@ cat /etc/zectl/zectl.conf
 # Check pacman hooks are installed
 ls -la /etc/pacman.d/hooks/95-zectl-kernel.hook
 
-# Verify zfs-dkms is ignored (should show in IgnorePkg)
-grep IgnorePkg /etc/pacman.conf
+# Verify custom packages are installed
+pacman -Q zectl-cachyos zectl-pacman-hook-cachyos
 ```
 
 ## Usage
@@ -171,15 +171,14 @@ Kernels are automatically signed after installation via pacman hook:
 
 ### Installation Issues
 
-**"Password required for user 'nobody'"**
-- This is automatically handled by the script using available user accounts
-- If you see this prompt, the script will create a temporary build user
-- No action needed - just wait for the script to continue
+**"Build fails during installation"**
+- Check you have sufficient disk space in /tmp
+- Ensure internet connection for downloading source code
+- If custom PKGBUILD fails, the script will automatically fall back to AUR packages
 
-**"zfs-dkms being installed unnecessarily"**
-- This script uses custom PKGBUILDs that don't depend on zfs-dkms since CachyOS has ZFS built-in
-- If you previously installed zectl-git from AUR, remove it first: `sudo pacman -R zectl-git zectl-pacman-hook`
-- The custom packages are: `zectl-cachyos` and `zectl-pacman-hook-cachyos`
+**"Conflicts with existing zectl installation"**
+- Remove existing packages first: `sudo pacman -R zectl-git zectl-pacman-hook`
+- Then re-run the installation script
 
 ### zectl Issues
 
