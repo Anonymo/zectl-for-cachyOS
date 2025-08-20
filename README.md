@@ -31,7 +31,7 @@ sudo ./install-zectl-cachyos.sh
 
 The script will:
 - Auto-detect your ZFS pool and bootloader
-- Install zectl from AUR (avoiding zfs-dkms since CachyOS has ZFS built-in)
+- Build and install zectl from custom PKGBUILD (no zfs-dkms dependency)
 - Configure boot environment management
 - Set up automatic snapshots before kernel updates
 - Create utility commands for easier management
@@ -177,9 +177,9 @@ Kernels are automatically signed after installation via pacman hook:
 - No action needed - just wait for the script to continue
 
 **"zfs-dkms being installed unnecessarily"**
-- The script automatically adds zfs-dkms to IgnorePkg since CachyOS has ZFS built-in
-- Check with: `grep IgnorePkg /etc/pacman.conf`
-- If already installed, you can remove it: `sudo pacman -R zfs-dkms spl-dkms`
+- This script uses custom PKGBUILDs that don't depend on zfs-dkms since CachyOS has ZFS built-in
+- If you previously installed zectl-git from AUR, remove it first: `sudo pacman -R zectl-git zectl-pacman-hook`
+- The custom packages are: `zectl-cachyos` and `zectl-pacman-hook-cachyos`
 
 ### zectl Issues
 
@@ -226,6 +226,21 @@ Check system logs:
 journalctl -u zfs-mount.service
 journalctl -f | grep zectl
 ```
+
+## Custom Packages
+
+This repository includes custom PKGBUILDs optimized for CachyOS:
+
+### zectl-cachyos
+- Based on upstream zectl-git from AUR
+- **Removes zfs-dkms dependency** since CachyOS has ZFS built into the kernel
+- Conflicts with `zectl` and `zectl-git` to avoid duplicates
+- Provides the same functionality as upstream zectl
+
+### zectl-pacman-hook-cachyos  
+- Based on upstream zectl-pacman-hook from AUR
+- Depends on `zectl-cachyos` instead of `zectl`
+- Automatically creates boot environments before kernel updates
 
 ## Configuration Files
 

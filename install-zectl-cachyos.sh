@@ -210,12 +210,7 @@ pacman -S --needed --noconfirm base-devel git cmake make scdoc || {
     done
 }
 
-# Add to pacman.conf to ignore zfs-dkms (CachyOS has ZFS built-in)
-log "Configuring pacman to ignore zfs-dkms (CachyOS has ZFS built-in)..."
-if ! grep -q "IgnorePkg.*zfs-dkms" /etc/pacman.conf; then
-    sed -i '/^#IgnorePkg/a IgnorePkg = zfs-dkms spl-dkms' /etc/pacman.conf
-    log "Added zfs-dkms and spl-dkms to IgnorePkg in pacman.conf"
-fi
+# Note: Using custom PKGBUILD that doesn't depend on zfs-dkms since CachyOS has ZFS built-in
 
 # Function to install AUR package without password prompts
 install_aur_package() {
@@ -268,12 +263,81 @@ install_aur_package() {
     fi
 }
 
-# Install zectl-git from AUR
-install_aur_package "zectl-git"
+# Install zectl from our custom PKGBUILD (avoids zfs-dkms dependency)
+log "Installing zectl from custom CachyOS-optimized PKGBUILD..."
+cd "$(dirname "$0")"
+SCRIPT_DIR="$(pwd)"
 
-# Install optional zectl-pacman-hook
-log "Installing zectl-pacman-hook for automatic boot environment management..."
-install_aur_package "zectl-pacman-hook"
+# Build and install zectl-cachyos
+if [[ -f "$SCRIPT_DIR/PKGBUILD" ]]; then
+    log "Building zectl-cachyos from local PKGBUILD..."
+    cd /tmp
+    rm -rf zectl-cachyos-build
+    mkdir zectl-cachyos-build
+    cd zectl-cachyos-build
+    cp "$SCRIPT_DIR/PKGBUILD" .
+    
+    # Find a regular user to build with
+    build_user=$(getent passwd | grep -E '/home/[^:]+' | head -1 | cut -d: -f1)
+    if [[ -z "$build_user" ]]; then
+        useradd -m -G wheel -s /bin/bash builduser 2>/dev/null || true
+        echo "builduser ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builduser
+        build_user="builduser"
+    fi
+    
+    chown -R "$build_user:$build_user" .
+    sudo -u "$build_user" makepkg -si --noconfirm || {
+        warning "Failed to build zectl-cachyos, falling back to AUR version"
+        install_aur_package "zectl-git"
+    }
+    
+    # Cleanup temporary user if created
+    if [[ "$build_user" == "builduser" ]]; then
+        userdel -r builduser 2>/dev/null || true
+        rm -f /etc/sudoers.d/builduser
+    fi
+    
+    cd "$SCRIPT_DIR"
+else
+    warning "Custom PKGBUILD not found, using AUR version"
+    install_aur_package "zectl-git"
+fi
+
+# Install zectl-pacman-hook from our custom PKGBUILD
+log "Installing zectl-pacman-hook from custom CachyOS version..."
+if [[ -f "$SCRIPT_DIR/zectl-pacman-hook/PKGBUILD" ]]; then
+    log "Building zectl-pacman-hook-cachyos from local PKGBUILD..."
+    cd /tmp
+    rm -rf zectl-pacman-hook-build
+    mkdir zectl-pacman-hook-build
+    cd zectl-pacman-hook-build
+    cp "$SCRIPT_DIR/zectl-pacman-hook/"* .
+    
+    # Find a regular user to build with
+    build_user=$(getent passwd | grep -E '/home/[^:]+' | head -1 | cut -d: -f1)
+    if [[ -z "$build_user" ]]; then
+        useradd -m -G wheel -s /bin/bash builduser 2>/dev/null || true
+        echo "builduser ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builduser
+        build_user="builduser"
+    fi
+    
+    chown -R "$build_user:$build_user" .
+    sudo -u "$build_user" makepkg -si --noconfirm || {
+        warning "Failed to build zectl-pacman-hook-cachyos, falling back to AUR version"
+        install_aur_package "zectl-pacman-hook"
+    }
+    
+    # Cleanup temporary user if created
+    if [[ "$build_user" == "builduser" ]]; then
+        userdel -r builduser 2>/dev/null || true
+        rm -f /etc/sudoers.d/builduser
+    fi
+    
+    cd "$SCRIPT_DIR"
+else
+    warning "Custom zectl-pacman-hook PKGBUILD not found, using AUR version"
+    install_aur_package "zectl-pacman-hook"
+fi
 
 # Create zectl configuration
 log "Creating zectl configuration..."
