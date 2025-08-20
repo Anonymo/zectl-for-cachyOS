@@ -5,9 +5,14 @@ Automated Boot Environment setup scripts for CachyOS with ZFS root filesystem. O
 ## Quick Start
 
 ```bash
-# Clone and install
+# Clone repository
 git clone https://github.com/Anonymo/zectl-for-cachyOS.git
 cd zectl-for-cachyOS
+
+# Option 1: Simple installation (recommended)
+sudo ./install-zectl-cachyos-simple.sh
+
+# Option 2: Full installation with custom packages
 sudo ./install-zectl-cachyos.sh
 
 # Optional: Enable Secure Boot
@@ -17,12 +22,17 @@ sudo ./setup-secureboot-cachyos.sh
 sudo ./uninstall-zectl-cachyos.sh
 ```
 
-**What this does:**
-- Auto-detects your ZFS pool, bootloader, and ESP path
-- Installs zectl from custom PKGBUILD (no zfs-dkms dependency)
-- Sets up automatic snapshots before kernel updates
-- Generates systemd-boot entries for boot environments
-- Creates utility scripts for easier management
+**Simple installation does:**
+- Auto-detects your ZFS pool and bootloader
+- Installs zectl-git from AUR with zfs-dkms prevention
+- Adds zfs-dkms to pacman.conf IgnorePkg (reliable method)
+- Sets up systemd-boot with boot environment support
+- Creates basic utility script
+
+**Full installation additionally:**
+- Uses custom PKGBUILDs without zfs-dkms dependencies
+- Includes comprehensive utility scripts and management tools
+- More features but potentially more complex
 
 <details>
 <summary><strong>📋 Prerequisites</strong></summary>
