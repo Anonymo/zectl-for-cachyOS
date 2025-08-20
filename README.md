@@ -118,6 +118,13 @@ Kernels are automatically signed after installation via pacman hook:
 
 ## Troubleshooting
 
+### Installation Issues
+
+**"Password required for user 'nobody'"**
+- This is automatically handled by the script using available user accounts
+- If you see this prompt, the script will create a temporary build user
+- No action needed - just wait for the script to continue
+
 ### zectl Issues
 
 **"No boot environments found"**

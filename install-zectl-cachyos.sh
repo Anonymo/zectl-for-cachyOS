@@ -210,34 +210,63 @@ pacman -S --needed --noconfirm base-devel git cmake make scdoc || {
     done
 }
 
-# Check if yay is installed, install if not
-if ! command -v yay &> /dev/null; then
-    log "Installing yay AUR helper..."
-    cd /tmp
-    rm -rf yay
-    git clone https://aur.archlinux.org/yay.git
-    cd yay
-    chown -R nobody:nobody .
-    sudo -u nobody makepkg -si --noconfirm
-    cd /
-fi
+# Function to install AUR package without password prompts
+install_aur_package() {
+    local package="$1"
+    local build_user
+    
+    # Find a regular user to build with (avoid nobody which needs password setup)
+    build_user=$(getent passwd | grep -E '/home/[^:]+' | head -1 | cut -d: -f1)
+    
+    if [[ -z "$build_user" ]]; then
+        # Fallback: create temporary build user
+        log "Creating temporary build user for AUR packages..."
+        useradd -m -G wheel -s /bin/bash builduser 2>/dev/null || true
+        echo "builduser ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builduser
+        build_user="builduser"
+    fi
+    
+    log "Installing $package from AUR as user $build_user..."
+    
+    # Install yay if not present
+    if ! command -v yay &>/dev/null; then
+        log "Installing yay AUR helper..."
+        cd /tmp
+        rm -rf yay
+        git clone https://aur.archlinux.org/yay.git
+        cd yay
+        chown -R "$build_user:$build_user" .
+        sudo -u "$build_user" makepkg -si --noconfirm
+        cd /
+    fi
+    
+    # Install the requested package
+    if sudo -u "$build_user" yay -S --noconfirm "$package"; then
+        success "Successfully installed $package"
+    else
+        warning "Failed to install $package via yay, trying manual build..."
+        cd /tmp
+        rm -rf "$package"
+        git clone "https://aur.archlinux.org/$package.git"
+        cd "$package"
+        chown -R "$build_user:$build_user" .
+        sudo -u "$build_user" makepkg -si --noconfirm || warning "Failed to build $package manually"
+        cd /
+    fi
+    
+    # Cleanup temporary user if created
+    if [[ "$build_user" == "builduser" ]]; then
+        userdel -r builduser 2>/dev/null || true
+        rm -f /etc/sudoers.d/builduser
+    fi
+}
 
 # Install zectl-git from AUR
-log "Installing zectl-git from AUR..."
-sudo -u nobody yay -S --noconfirm zectl-git || {
-    warning "Failed to install zectl-git via yay, trying manual build..."
-    cd /tmp
-    rm -rf zectl-git
-    git clone https://aur.archlinux.org/zectl-git.git
-    cd zectl-git
-    chown -R nobody:nobody .
-    sudo -u nobody makepkg -si --noconfirm
-    cd /
-}
+install_aur_package "zectl-git"
 
 # Install optional zectl-pacman-hook
 log "Installing zectl-pacman-hook for automatic boot environment management..."
-sudo -u nobody yay -S --noconfirm zectl-pacman-hook || warning "Failed to install zectl-pacman-hook"
+install_aur_package "zectl-pacman-hook"
 
 # Create zectl configuration
 log "Creating zectl configuration..."
