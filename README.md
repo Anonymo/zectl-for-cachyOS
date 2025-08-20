@@ -110,9 +110,21 @@ secureboot-manager enroll    # Enroll keys to firmware
 - **zectl command fails**: Check ZFS pool status: `zpool status`
 - **No environments found**: Verify config: `cat /etc/zectl/zectl.conf`
 
+### System Issues After Installation
+- **Sleep/wake problems**: ZFS services might interfere with power management
+  - Check ZFS service status: `systemctl status zfs-import-cache.service zfs-mount.service`
+  - Disable problematic services temporarily: `sudo systemctl disable zfs-import-cache.service`
+  - Check system logs: `journalctl -b | grep -i "suspend\|sleep\|wake"`
+
 ### Debug Mode
 ```bash
 DEBUG=1 sudo ./install-zectl-cachyos.sh
+```
+
+### System Diagnostic
+```bash
+# Run comprehensive system diagnostic
+./diagnose-system.sh
 ```
 </details>
 

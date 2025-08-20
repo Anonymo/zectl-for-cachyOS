@@ -467,11 +467,19 @@ When = PreTransaction
 Exec = /bin/sh -c 'zectl create "pre-kernel-$(date +%Y%m%d-%H%M%S)"'
 EOF
 
-# Configure ZFS services
+# Configure ZFS services (selective to avoid sleep/wake issues)
 log "Configuring ZFS mount services..."
-for service in zfs-import-cache.service zfs-mount.service zfs.target; do
+# Only enable essential services, avoid zfs-import-cache which can cause sleep issues
+for service in zfs-mount.service zfs.target; do
     systemctl enable "$service" 2>/dev/null || warning "Failed to enable $service"
 done
+
+# Check if zfs-import-cache is causing issues (known to interfere with suspend)
+if systemctl is-enabled zfs-import-cache.service &>/dev/null; then
+    warning "zfs-import-cache.service is enabled - this may cause sleep/wake issues"
+    log "You can disable it with: sudo systemctl disable zfs-import-cache.service"
+    log "ZFS pools will still be imported on boot via other mechanisms"
+fi
 
 # Create utility script for common zectl operations
 log "Creating zectl utility script..."
