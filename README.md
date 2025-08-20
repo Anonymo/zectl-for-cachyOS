@@ -31,10 +31,11 @@ sudo ./install-zectl-cachyos.sh
 
 The script will:
 - Auto-detect your ZFS pool and bootloader
-- Install zectl from AUR
+- Install zectl from AUR (avoiding zfs-dkms since CachyOS has ZFS built-in)
 - Configure boot environment management
 - Set up automatic snapshots before kernel updates
 - Create utility commands for easier management
+- Generate systemd-boot entries for boot environments
 
 ### 2. Enable Secure Boot (Optional)
 
@@ -47,6 +48,56 @@ This will:
 - Sign your bootloader and kernels
 - Set up automatic kernel signing after updates
 - Provide tools to manage Secure Boot enrollment
+
+## Post-Installation Verification
+
+After running the installation script, verify everything is working:
+
+### 1. Check zectl Installation
+```bash
+# Test zectl command
+zectl list
+
+# You should see at least one boot environment, possibly:
+# - initial-YYYYMMDD (created by script)
+# - Your current system environment
+```
+
+### 2. Verify systemd-boot Integration
+```bash
+# Check systemd-boot entries
+bootctl list
+
+# Look for boot environment entries in the systemd-boot menu
+# Reboot and check the boot menu - you should see:
+# - Your current CachyOS boot option
+# - Additional boot environment options (if created)
+# - Increased timeout (10 seconds) for selection
+```
+
+### 3. Test Boot Environment Creation
+```bash
+# Create a test boot environment
+zectl create test-environment
+
+# Check it appears in the list
+zectl list
+
+# Verify boot entries are updated
+bootctl list
+```
+
+### 4. Verify Configuration Files
+```bash
+# Check zectl configuration
+cat /etc/zectl/zectl.conf
+
+# Check pacman hooks are installed
+ls -la /etc/pacman.d/hooks/95-zectl-kernel.hook
+
+# Verify zfs-dkms is ignored (should show in IgnorePkg)
+grep IgnorePkg /etc/pacman.conf
+```
 
 ## Usage
 
@@ -125,6 +176,11 @@ Kernels are automatically signed after installation via pacman hook:
 - If you see this prompt, the script will create a temporary build user
 - No action needed - just wait for the script to continue
 
+**"zfs-dkms being installed unnecessarily"**
+- The script automatically adds zfs-dkms to IgnorePkg since CachyOS has ZFS built-in
+- Check with: `grep IgnorePkg /etc/pacman.conf`
+- If already installed, you can remove it: `sudo pacman -R zfs-dkms spl-dkms`
+
 ### zectl Issues
 
 **"No boot environments found"**
@@ -136,6 +192,13 @@ Kernels are automatically signed after installation via pacman hook:
 - Ensure bootloader is properly configured
 - Check ESP mount: `findmnt /boot` or `findmnt /boot/efi`
 - Verify bootloader entries: `bootctl list` (systemd-boot)
+
+**"systemd-boot doesn't show boot environments"**
+- Run: `zectl generate-bootloader-entries` to manually generate entries
+- Check: `bootctl list` to see if entries were created
+- Verify: `/boot/loader/entries/` contains `.conf` files for each boot environment
+- Update: `bootctl update` to refresh systemd-boot
+- If still not working, try creating a new boot environment: `zectl create test` and check again
 
 ### Secure Boot Issues
 

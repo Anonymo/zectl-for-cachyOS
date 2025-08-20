@@ -210,6 +210,13 @@ pacman -S --needed --noconfirm base-devel git cmake make scdoc || {
     done
 }
 
+# Add to pacman.conf to ignore zfs-dkms (CachyOS has ZFS built-in)
+log "Configuring pacman to ignore zfs-dkms (CachyOS has ZFS built-in)..."
+if ! grep -q "IgnorePkg.*zfs-dkms" /etc/pacman.conf; then
+    sed -i '/^#IgnorePkg/a IgnorePkg = zfs-dkms spl-dkms' /etc/pacman.conf
+    log "Added zfs-dkms and spl-dkms to IgnorePkg in pacman.conf"
+fi
+
 # Function to install AUR package without password prompts
 install_aur_package() {
     local package="$1"
@@ -321,13 +328,17 @@ case "$BOOTLOADER" in
         # Update loader.conf
         cat > "$LOADER_DIR/loader.conf" << EOF
 default @saved
-timeout 5
+timeout 10
 console-mode max
 editor no
 auto-entries yes
 auto-firmware yes
 EOF
-        success "Configured systemd-boot"
+        
+        # Create entries directory
+        mkdir -p "$ESP_PATH/loader/entries"
+        
+        success "Configured systemd-boot with increased timeout for boot environment selection"
         ;;
         
     "grub")
@@ -361,6 +372,17 @@ if ! zectl list | grep -q "$BE_NAME"; then
     zectl create "$BE_NAME" || warning "Failed to create initial boot environment"
 else
     log "Boot environment $BE_NAME already exists"
+fi
+
+# Generate boot entries for systemd-boot
+if [[ "$BOOTLOADER" == "systemd-boot" ]]; then
+    log "Generating systemd-boot entries for boot environments..."
+    zectl generate-bootloader-entries || warning "Failed to generate boot entries - you may need to do this manually"
+    
+    # Update bootctl if available
+    if command -v bootctl &>/dev/null; then
+        bootctl update || warning "Failed to update systemd-boot"
+    fi
 fi
 
 # Set up automatic snapshots before kernel updates
