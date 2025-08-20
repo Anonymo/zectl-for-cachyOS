@@ -12,6 +12,9 @@ sudo ./install-zectl-cachyos.sh
 
 # Optional: Enable Secure Boot
 sudo ./setup-secureboot-cachyos.sh
+
+# Optional: Uninstall everything
+sudo ./uninstall-zectl-cachyos.sh
 ```
 
 **What this does:**
@@ -96,6 +99,33 @@ secureboot-manager enroll    # Enroll keys to firmware
 - **Pre-kernel snapshots**: Automatic boot environments before kernel updates
 - **Secure Boot signing**: Automatic kernel signing after updates (if enabled)
 - **Boot entry generation**: systemd-boot entries automatically created/updated
+</details>
+
+<details>
+<summary><strong>🗑️ Uninstallation</strong></summary>
+
+### Complete Removal
+```bash
+sudo ./uninstall-zectl-cachyos.sh
+```
+
+**What it removes:**
+- All zectl packages (zectl-cachyos, zectl-git, zectl-pacman-hook)
+- Configuration files (/etc/zectl/, pacman hooks)
+- Utility scripts (zectl-manager, secureboot-manager)
+- Restores original pacman.conf (removes zfs-dkms from IgnorePkg)
+- Optionally removes Secure Boot components and keys
+
+**What it preserves:**
+- Existing ZFS boot environments and snapshots
+- ZFS pool functionality (built into CachyOS kernel)
+- Can optionally keep Secure Boot setup
+
+**After uninstall:**
+- You can install regular zectl from AUR if desired
+- Boot environments still exist in ZFS - manually remove if needed
+- ZFS functionality remains available
+
 </details>
 
 <details>
