@@ -9,7 +9,8 @@ pkgdesc="ZFS Boot Environment manager (CachyOS optimized - no zfs-dkms dependenc
 url="http://github.com/johnramsden/zectl"
 arch=('any')
 license=('MIT')
-# CachyOS has ZFS built into kernel - no need for zfs-dkms
+# CachyOS has ZFS built into kernel - no dependencies needed
+# zfs command is provided by CachyOS kernel
 depends=()
 makedepends=('make' 'cmake' 'scdoc' 'git')
 provides=('zectl')

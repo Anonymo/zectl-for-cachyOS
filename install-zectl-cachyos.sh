@@ -210,7 +210,38 @@ pacman -S --needed --noconfirm base-devel git cmake make scdoc || {
     done
 }
 
-# Note: Using custom PKGBUILD that doesn't depend on zfs-dkms since CachyOS has ZFS built-in
+# Prevent zfs-dkms installation (CachyOS has ZFS built-in)
+log "Configuring pacman to prevent zfs-dkms installation..."
+
+# Create a more robust IgnorePkg configuration
+backup_pacman_conf() {
+    if [[ ! -f /etc/pacman.conf.backup-zectl ]]; then
+        cp /etc/pacman.conf /etc/pacman.conf.backup-zectl
+        log "Backed up original pacman.conf"
+    fi
+}
+
+add_ignore_packages() {
+    backup_pacman_conf
+    
+    # Remove any existing IgnorePkg lines with our packages
+    sed -i '/IgnorePkg.*zfs-dkms/d' /etc/pacman.conf
+    sed -i '/IgnorePkg.*spl-dkms/d' /etc/pacman.conf
+    
+    # Add our IgnorePkg line in the [options] section
+    if grep -q "^IgnorePkg" /etc/pacman.conf; then
+        # Append to existing IgnorePkg line
+        sed -i 's/^IgnorePkg.*$/& zfs-dkms spl-dkms/' /etc/pacman.conf
+    else
+        # Add new IgnorePkg line after [options]
+        sed -i '/^\[options\]/a IgnorePkg = zfs-dkms spl-dkms' /etc/pacman.conf
+    fi
+    
+    success "Configured pacman to ignore zfs-dkms and spl-dkms packages"
+    log "CachyOS has ZFS built into the kernel - DKMS modules are not needed"
+}
+
+add_ignore_packages
 
 # Function to install AUR package without password prompts
 install_aur_package() {
@@ -242,8 +273,8 @@ install_aur_package() {
         cd /
     fi
     
-    # Install the requested package
-    if sudo -u "$build_user" yay -S --noconfirm "$package"; then
+    # Install the requested package with ignore flags for zfs-dkms
+    if sudo -u "$build_user" yay -S --noconfirm --ignore zfs-dkms,spl-dkms "$package"; then
         success "Successfully installed $package"
     else
         warning "Failed to install $package via yay, trying manual build..."
@@ -252,7 +283,7 @@ install_aur_package() {
         git clone "https://aur.archlinux.org/$package.git"
         cd "$package"
         chown -R "$build_user:$build_user" .
-        sudo -u "$build_user" makepkg -si --noconfirm || warning "Failed to build $package manually"
+        sudo -u "$build_user" makepkg -si --noconfirm --ignore zfs-dkms,spl-dkms || warning "Failed to build $package manually"
         cd /
     fi
     
@@ -263,13 +294,13 @@ install_aur_package() {
     fi
 }
 
-# Install zectl from our custom PKGBUILD (avoids zfs-dkms dependency)
-log "Installing zectl from custom CachyOS-optimized PKGBUILD..."
+# Install zectl using custom approach to avoid zfs-dkms
+log "Installing zectl (CachyOS-optimized to avoid zfs-dkms)..."
 cd "$(dirname "$0")"
 SCRIPT_DIR="$(pwd)"
 
-# Build and install zectl-cachyos
-if [[ -f "$SCRIPT_DIR/PKGBUILD" ]]; then
+# Function to build custom package
+build_custom_zectl() {
     log "Building zectl-cachyos from local PKGBUILD..."
     cd /tmp
     rm -rf zectl-cachyos-build
@@ -286,10 +317,10 @@ if [[ -f "$SCRIPT_DIR/PKGBUILD" ]]; then
     fi
     
     chown -R "$build_user:$build_user" .
-    sudo -u "$build_user" makepkg -si --noconfirm || {
-        warning "Failed to build zectl-cachyos, falling back to AUR version"
-        install_aur_package "zectl-git"
-    }
+    
+    # Build with ignore flags to prevent dependency issues
+    sudo -u "$build_user" makepkg -si --noconfirm --ignore zfs-dkms,spl-dkms
+    local build_result=$?
     
     # Cleanup temporary user if created
     if [[ "$build_user" == "builduser" ]]; then
@@ -298,6 +329,17 @@ if [[ -f "$SCRIPT_DIR/PKGBUILD" ]]; then
     fi
     
     cd "$SCRIPT_DIR"
+    return $build_result
+}
+
+# Try custom PKGBUILD first
+if [[ -f "$SCRIPT_DIR/PKGBUILD" ]]; then
+    if build_custom_zectl; then
+        success "Successfully installed zectl-cachyos"
+    else
+        warning "Custom build failed, trying AUR with ignore flags"
+        install_aur_package "zectl-git"
+    fi
 else
     warning "Custom PKGBUILD not found, using AUR version"
     install_aur_package "zectl-git"
